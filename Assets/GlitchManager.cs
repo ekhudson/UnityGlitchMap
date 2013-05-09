@@ -12,6 +12,8 @@ public class GlitchManager : MonoBehaviour
 	
 	public int ImageSize = 512;
 	
+	public string ImageLocation = string.Empty;
+	
 	private Texture2D mGlitchedTexture;
 	
 	private WWW textureData;
@@ -60,12 +62,23 @@ public class GlitchManager : MonoBehaviour
 		mCurrentIterations = MaxIterations;
 		mCurrentSeed = Seed;
 		
+		LoadImage(ImageLocation);
 		
-		string targetFile = "file://" + Application.dataPath + "/Resources/lance.jpg";
-			
-		textureData = new WWW(targetFile);	
+	}
+	
+	void LoadImage(string location)
+	{
+		if (string.IsNullOrEmpty(location))
+		{
+			location = "file://" + Application.dataPath + "/Resources/lance.jpg";	
+		}	
+		
+		textureData = new WWW(location);	
+		
+		GetHeaderSize(textureData.bytes);
 		
 		mGlitchedTexture = textureData.texture;
+		
 	}
 	
 	// Update is called once per frame
@@ -87,19 +100,18 @@ public class GlitchManager : MonoBehaviour
 		float random = mCurrentSeed;		
 		
 		for(int i = kHeaderSize; i < kHeaderSize + (mCurrentGlitchiness * mCurrentIterations); i++)
-		{
-			if (i >= byteArray.Length)
-			{
-				return;
-			}		
-			
+		{			
 			random = ( random * 16807 ) % 2147483647;			
 			
 			int pos = (int)(byteArray.Length * random * 4.656612875245797e-10);			
 			
+			if (i >= byteArray.Length || pos >= byteArray.Length)
+			{
+				return;
+			}
+			
 			byteArray[pos] = new byte();		
-		}	
-		
+		}		
 		
 		mGlitchedTexture.LoadImage(byteArray);	
 		
@@ -107,16 +119,21 @@ public class GlitchManager : MonoBehaviour
 	
 	void OnGUI()
 	{
-			if (mGlitchedTexture == null)
+		if (mGlitchedTexture == null)
 		{
 			return;
 		}
 		
+		GUILayout.BeginArea(new Rect(0,0, Screen.width, Screen.height));
+		
 		
 		GUILayout.BeginHorizontal();
 		
+		GUILayout.FlexibleSpace();
+		
 		GUILayout.BeginVertical();
 		
+		GUILayout.FlexibleSpace();
 		
 		GUILayout.Box(string.Empty, new GUILayoutOption[] {GUILayout.Width(ImageSize), GUILayout.Height(ImageSize)});
 		
@@ -126,7 +143,27 @@ public class GlitchManager : MonoBehaviour
 		
 		GUILayout.BeginHorizontal();
 		
+		ImageLocation = GUILayout.TextField(ImageLocation);
+		
+		if (GUILayout.Button("Load Image"))
+		{
+			LoadImage(ImageLocation);
+		}		
+		
+		GUILayout.EndHorizontal();
+		
+		GUILayout.BeginHorizontal();
+		
+		GUILayout.Label("Image Size: ");
+		ImageSize = System.Int32.Parse( GUILayout.TextField(Glitchiness.ToString()) );
+		ImageSize = (int)GUILayout.HorizontalSlider(Glitchiness, 0, 150);
+		
+		GUILayout.EndHorizontal();
+		
+		GUILayout.BeginHorizontal();
+		
 		GUILayout.Label("Glitchiness: ");
+		Glitchiness = System.Int32.Parse( GUILayout.TextField(Glitchiness.ToString()) );
 		Glitchiness = (int)GUILayout.HorizontalSlider(Glitchiness, 0, 150);
 		
 		GUILayout.EndHorizontal();
@@ -134,6 +171,7 @@ public class GlitchManager : MonoBehaviour
 		GUILayout.BeginHorizontal();
 		
 		GUILayout.Label("Max Iterations: ");
+		MaxIterations = System.Int32.Parse( GUILayout.TextField(MaxIterations.ToString()) );
 		MaxIterations = (int)GUILayout.HorizontalSlider(MaxIterations, 1, 5);
 		
 		GUILayout.EndHorizontal();
@@ -141,46 +179,49 @@ public class GlitchManager : MonoBehaviour
 		GUILayout.BeginHorizontal();
 		
 		GUILayout.Label("Seed: ");
+		Seed = System.Int32.Parse( GUILayout.TextField(Seed.ToString()) );
 		Seed = (int)GUILayout.HorizontalSlider(Seed, 1, 1000);
 		
 		GUILayout.EndHorizontal();
 		
+		GUILayout.FlexibleSpace();
 		
 		GUILayout.EndVertical();
 		
+		GUILayout.FlexibleSpace();
 		
 		GUILayout.EndHorizontal();
+		
+		GUILayout.EndArea();
+		
 	}
 	
 	public void GetHeaderSize(byte[] byteArray)
-	{
-	
-//		    byte[] _bytesSource = byteArray;			
-//			int _headerSize = 417;
-//		
-//			int length = byteArray.length;
-//			int count = 0;
-//
-//			uint b;
-//			
-//			while(count < length)
-//			{
-//				b = byteArray[count];
-//				
-//				if(b == 0xFF)
-//				{
-//					b = byteArray[count];
-//					
-//					if(b == 0xDA)
-//					{
-//						_headerSize = count + b;
-//						break;
-//					}
-//					
-//					count++;
-//				}
-//			}
-//			
-//			draw();
+	{	
+		    byte[] _bytesSource = byteArray;			
+			int _headerSize = 417;
+		
+			int length = byteArray.Length;
+			int count = 0;
+
+			uint b;
+			
+			while(count < length)
+			{
+				b = byteArray[count];
+				
+				if(b == 0xFF)
+				{
+					b = byteArray[count];
+					
+					if(b == 0xDA)
+					{
+						_headerSize = count + (int)b;
+						break;
+					}
+					
+					count++;
+				}
+			}			
 	}
 }
