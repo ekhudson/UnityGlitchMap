@@ -5,7 +5,7 @@ using System.Collections;
 public class GlitchManager : MonoBehaviour 
 {
 	public Texture2D TextureToUse;	
-	public int Glitchiness = 1;
+	public float Glitchiness = 1;
 	public int MaxIterations = 1;
 	public int Seed = 2341;
 	public float Speed = 5;
@@ -19,11 +19,15 @@ public class GlitchManager : MonoBehaviour
 	private WWW textureData;
 	
 	
-	private const int kHeaderSize = 500;
+	private int mHeaderSize = 500;
 	
-	private int mCurrentGlitchiness;
+	private float mCurrentGlitchiness;
 	private int mCurrentIterations;
 	private int mCurrentSeed;
+	private byte[] mByteArray;
+	private byte[] mOriginalByteArray;
+	private string[] mByteString;
+	private string mByteStringCollapsed;
 
 	// Use this for initialization
 	void Start () 
@@ -75,6 +79,13 @@ public class GlitchManager : MonoBehaviour
 		
 		textureData = new WWW(location);	
 		
+		while (!textureData.isDone)
+		{
+			//wait
+		}		
+		
+		mOriginalByteArray = mByteArray = textureData.bytes;
+		
 		GetHeaderSize(textureData.bytes);
 		
 		mGlitchedTexture = textureData.texture;
@@ -89,32 +100,44 @@ public class GlitchManager : MonoBehaviour
 			return;
 		}
 		
-		mCurrentGlitchiness = (int)Mathf.Lerp(mCurrentGlitchiness, Glitchiness, Time.deltaTime * Speed);
+		mCurrentGlitchiness = (float)Mathf.Lerp(mCurrentGlitchiness, Glitchiness, Time.deltaTime * Speed);
 		mCurrentIterations = (int)Mathf.Lerp(mCurrentIterations, MaxIterations, Time.deltaTime * Speed);
-		mCurrentSeed = (int)Mathf.Lerp(mCurrentSeed, Seed, Time.deltaTime * Speed);	
-			
+		mCurrentSeed = (int)Mathf.Lerp(mCurrentSeed, Seed, Time.deltaTime * Speed);			
 		
-		byte[] byteArray = textureData.bytes;		
-	
+		byte[] byteArray = textureData.bytes;	
+		mOriginalByteArray = byteArray;
 		
 		float random = mCurrentSeed;		
+		int length = (byteArray.Length - mHeaderSize - 2);
 		
-		for(int i = kHeaderSize; i < kHeaderSize + (mCurrentGlitchiness * mCurrentIterations); i++)
+		for(int i = 0; i < (mCurrentGlitchiness * mCurrentIterations); i++)
 		{			
 			random = ( random * 16807 ) % 2147483647;			
 			
-			int pos = (int)(byteArray.Length * random * 4.656612875245797e-10);			
+			int pos = mHeaderSize + (int)(length * random * 4.656612875245797e-10);			
 			
-			if (i >= byteArray.Length || pos >= byteArray.Length)
+			if (i >= byteArray.Length || pos >= byteArray.Length || pos <= mHeaderSize - 2)
 			{
 				return;
 			}
 			
-			byteArray[pos] = new byte();		
+			byteArray[pos] = new byte();			
 		}		
 		
-		mGlitchedTexture.LoadImage(byteArray);	
+		mByteArray = byteArray;
 		
+		mGlitchedTexture.LoadImage(byteArray);
+		
+		mByteString = new string[mByteArray.Length];
+		
+		for(int i = 0; i < mByteArray.Length; i++)
+		{
+			mByteString[i] = mByteArray[i].ToString();
+			//mByteString[i] = System.Text.Encoding.Default.GetString(mByteArray, i, 1);
+		}
+		
+		
+		mByteStringCollapsed = System.String.Join(string.Empty, mByteString);
 	}
 	
 	void OnGUI()
@@ -122,7 +145,13 @@ public class GlitchManager : MonoBehaviour
 		if (mGlitchedTexture == null)
 		{
 			return;
-		}
+		}		
+		
+		Rect labelRect = new Rect(0,0,Screen.width,Screen.height);
+		
+		
+		GUI.Label(labelRect, mByteStringCollapsed);		
+				
 		
 		GUILayout.BeginArea(new Rect(0,0, Screen.width, Screen.height));
 		
@@ -150,21 +179,13 @@ public class GlitchManager : MonoBehaviour
 			LoadImage(ImageLocation);
 		}		
 		
-		GUILayout.EndHorizontal();
-		
-		GUILayout.BeginHorizontal();
-		
-		GUILayout.Label("Image Size: ");
-		ImageSize = System.Int32.Parse( GUILayout.TextField(Glitchiness.ToString()) );
-		ImageSize = (int)GUILayout.HorizontalSlider(Glitchiness, 0, 150);
-		
-		GUILayout.EndHorizontal();
+		GUILayout.EndHorizontal();		
 		
 		GUILayout.BeginHorizontal();
 		
 		GUILayout.Label("Glitchiness: ");
-		Glitchiness = System.Int32.Parse( GUILayout.TextField(Glitchiness.ToString()) );
-		Glitchiness = (int)GUILayout.HorizontalSlider(Glitchiness, 0, 150);
+		Glitchiness = float.Parse( GUILayout.TextField(Glitchiness.ToString("0.00")) );
+		Glitchiness = (float)GUILayout.HorizontalSlider(Glitchiness, 0f, 1f);
 		
 		GUILayout.EndHorizontal();
 		
@@ -172,7 +193,7 @@ public class GlitchManager : MonoBehaviour
 		
 		GUILayout.Label("Max Iterations: ");
 		MaxIterations = System.Int32.Parse( GUILayout.TextField(MaxIterations.ToString()) );
-		MaxIterations = (int)GUILayout.HorizontalSlider(MaxIterations, 1, 5);
+		MaxIterations = (int)GUILayout.HorizontalSlider(MaxIterations, 1, 1024);
 		
 		GUILayout.EndHorizontal();
 		
@@ -207,21 +228,23 @@ public class GlitchManager : MonoBehaviour
 			uint b;
 			
 			while(count < length)
-			{
-				b = byteArray[count];
-				
-				if(b == 0xFF)
+			{				
+				b = _bytesSource[count];
+							
+				if(System.Convert.ToByte(b) == 0xFF)
 				{
-					b = byteArray[count];
+					b = _bytesSource[count];
 					
-					if(b == 0xDA)
+					if(System.Convert.ToByte(b) == 0xDA)
 					{
 						_headerSize = count + (int)b;
 						break;
-					}
-					
-					count++;
+					}					
 				}
+			
+				count++;
 			}			
+		
+			mHeaderSize = _headerSize;
 	}
 }
