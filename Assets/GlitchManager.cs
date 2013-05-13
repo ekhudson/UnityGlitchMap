@@ -9,6 +9,8 @@ public class GlitchManager : MonoBehaviour
 	public int MaxIterations = 1;
 	public int Seed = 2341;
 	public float Speed = 5;
+	public int ByteValue = 0;
+	public bool ShowData = false;
 	
 	public int ImageSize = 512;
 	
@@ -28,46 +30,24 @@ public class GlitchManager : MonoBehaviour
 	private byte[] mOriginalByteArray;
 	private string[] mByteString;
 	private string mByteStringCollapsed;
+	private string[] mBytesAlteredArray;
+	private string mBytesAlteredCollapsed;
+	
+	
+	
+	private GUIStyle mLabelStyle;
+	
 
 	// Use this for initialization
 	void Start () 
-	{
-//		string targetFile = "file://" + Application.dataPath + "/lance.jpg";
-//		
-//		Debug.Log(targetFile);
-//		
-//		textureData = new WWW(targetFile);
-//		mGlitchedTexture = textureData.texture;
-//		
-//		byte[] byteArray = textureData.bytes;
-//		
-//		Debug.Log(textureData.bytes.Length);
-//		
-//		float random = 89320498;		
-//		
-//		for(int i = kHeaderSize; i < kHeaderSize + Iterations; i++)
-//		{
-//			random = ( random * 16807 ) % 2147483647;			
-//			
-//			int pos = (int)(byteArray.Length * random * 4.656612875245797e-10);
-//			
-//			//Debug.Log ("before: " + byteArray[pos].ToString());
-//			
-//			//byteArray[pos] = System.BitConverter.GetBytes( Random.Range(0, int.MaxValue) )[0];
-//			byteArray[pos] = new byte();
-//			
-//			//Debug.Log ("after: " + byteArray[pos].ToString());
-//		}	
-//		
-//		
-//		mGlitchedTexture.LoadImage(byteArray);
-		
+	{		
 		mCurrentGlitchiness = Glitchiness;
 		mCurrentIterations = MaxIterations;
 		mCurrentSeed = Seed;
 		
-		LoadImage(ImageLocation);
 		
+		
+		LoadImage(ImageLocation);		
 	}
 	
 	void LoadImage(string location)
@@ -105,8 +85,15 @@ public class GlitchManager : MonoBehaviour
 		mCurrentSeed = (int)Mathf.Lerp(mCurrentSeed, Seed, Time.deltaTime * Speed);			
 		
 		byte[] byteArray = textureData.bytes;	
-		mOriginalByteArray = byteArray;
+		mOriginalByteArray = new byte[byteArray.Length];
+		mBytesAlteredArray = new string[byteArray.Length];
 		
+		for (int j = 0; j < mBytesAlteredArray.Length; j++)
+		{
+			mOriginalByteArray[j] = byteArray[j];
+			mBytesAlteredArray[j] = System.Text.Encoding.Default.GetString(mOriginalByteArray, j, 1);
+		}
+				
 		float random = mCurrentSeed;		
 		int length = (byteArray.Length - mHeaderSize - 2);
 		
@@ -121,7 +108,7 @@ public class GlitchManager : MonoBehaviour
 				return;
 			}
 			
-			byteArray[pos] = new byte();			
+			byteArray[pos] = (byte)ByteValue;			
 		}		
 		
 		mByteArray = byteArray;
@@ -130,14 +117,17 @@ public class GlitchManager : MonoBehaviour
 		
 		mByteString = new string[mByteArray.Length];
 		
+		
 		for(int i = 0; i < mByteArray.Length; i++)
 		{
-			mByteString[i] = mByteArray[i].ToString();
-			//mByteString[i] = System.Text.Encoding.Default.GetString(mByteArray, i, 1);
+			//mByteString[i] = mByteArray[i].ToString();
+			mByteString[i] = System.Text.Encoding.Default.GetString(mByteArray, i, 1);
 		}
 		
 		
-		mByteStringCollapsed = System.String.Join(string.Empty, mByteString);
+		mByteStringCollapsed = System.String.Join(" ", mByteString);
+		mBytesAlteredCollapsed = System.String.Join(" ", mBytesAlteredArray);	
+		
 	}
 	
 	void OnGUI()
@@ -145,16 +135,28 @@ public class GlitchManager : MonoBehaviour
 		if (mGlitchedTexture == null)
 		{
 			return;
-		}		
+		}
 		
-		Rect labelRect = new Rect(0,0,Screen.width,Screen.height);
+		if (ShowData)
+		{
 		
+			mLabelStyle = new GUIStyle(GUI.skin.label);
+			mLabelStyle.wordWrap = true;
+			
+			Rect labelRect = new Rect(0,0,Screen.width,Screen.height);		
+			
+			GUI.color = Color.red;	
+			
+			GUI.Label(labelRect, mBytesAlteredCollapsed, mLabelStyle);	
+			
+			GUI.color = Color.white;
+			
+			GUI.Label(labelRect, mByteStringCollapsed, mLabelStyle);				
+			
+			GUI.color = Color.white;
+		}
 		
-		GUI.Label(labelRect, mByteStringCollapsed);		
-				
-		
-		GUILayout.BeginArea(new Rect(0,0, Screen.width, Screen.height));
-		
+		GUILayout.BeginArea(new Rect(0,0, Screen.width, Screen.height));		
 		
 		GUILayout.BeginHorizontal();
 		
@@ -170,9 +172,11 @@ public class GlitchManager : MonoBehaviour
 		
 		GUI.DrawTexture(rect, mGlitchedTexture);
 		
+		GUILayout.BeginVertical(GUI.skin.button,GUILayout.Width(ImageSize));
+		
 		GUILayout.BeginHorizontal();
 		
-		ImageLocation = GUILayout.TextField(ImageLocation);
+		ImageLocation = GUILayout.TextField(ImageLocation, GUILayout.Width(ImageSize * 0.75f));
 		
 		if (GUILayout.Button("Load Image"))
 		{
@@ -183,7 +187,7 @@ public class GlitchManager : MonoBehaviour
 		
 		GUILayout.BeginHorizontal();
 		
-		GUILayout.Label("Glitchiness: ");
+		GUILayout.Label("Glitchiness: ", GUI.skin.button);
 		Glitchiness = float.Parse( GUILayout.TextField(Glitchiness.ToString("0.00")) );
 		Glitchiness = (float)GUILayout.HorizontalSlider(Glitchiness, 0f, 1f);
 		
@@ -191,7 +195,7 @@ public class GlitchManager : MonoBehaviour
 		
 		GUILayout.BeginHorizontal();
 		
-		GUILayout.Label("Max Iterations: ");
+		GUILayout.Label("Max Iterations: ", GUI.skin.button);
 		MaxIterations = System.Int32.Parse( GUILayout.TextField(MaxIterations.ToString()) );
 		MaxIterations = (int)GUILayout.HorizontalSlider(MaxIterations, 1, 1024);
 		
@@ -199,11 +203,29 @@ public class GlitchManager : MonoBehaviour
 		
 		GUILayout.BeginHorizontal();
 		
-		GUILayout.Label("Seed: ");
+		GUILayout.Label("Seed: ", GUI.skin.button);
 		Seed = System.Int32.Parse( GUILayout.TextField(Seed.ToString()) );
 		Seed = (int)GUILayout.HorizontalSlider(Seed, 1, 1000);
 		
 		GUILayout.EndHorizontal();
+		
+		GUILayout.BeginHorizontal();
+		
+		GUILayout.Label("Byte Value: ", GUI.skin.button);
+		ByteValue = System.Int32.Parse( GUILayout.TextField(ByteValue.ToString()) );
+		ByteValue = (int)GUILayout.HorizontalSlider(ByteValue, 0, 254);
+		
+		GUILayout.EndHorizontal();
+		
+		GUILayout.BeginHorizontal();	
+		
+		ShowData = GUILayout.Toggle(ShowData, "Show Data");
+		
+		GUILayout.Label(string.Format("Corruption: {0:P}", ((mCurrentGlitchiness * mCurrentIterations) / textureData.bytes.Length)), GUI.skin.button);
+		
+		GUILayout.EndHorizontal();	
+		
+		GUILayout.EndVertical();
 		
 		GUILayout.FlexibleSpace();
 		
@@ -211,7 +233,7 @@ public class GlitchManager : MonoBehaviour
 		
 		GUILayout.FlexibleSpace();
 		
-		GUILayout.EndHorizontal();
+		GUILayout.EndHorizontal();	
 		
 		GUILayout.EndArea();
 		
